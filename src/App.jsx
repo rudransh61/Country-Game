@@ -9,6 +9,7 @@ function GuessCountriesGame() {
   const [timerRunning, setTimerRunning] = useState(true);
   const [timeGiven, setTimeGiven] = useState();
   const [promptShown, setPromptShown] = useState(false);
+  const [gameOver, setGameOver] = useState(false);
   const apiUrl = 'https://restcountries.com/v3.1/all';
 
   useEffect(() => {
@@ -42,6 +43,7 @@ function GuessCountriesGame() {
       timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
     } else if (timeLeft === 0) {
       setTimerRunning(false);
+      setGameOver(true);
       alert('Time is up!');
     }
     return () => clearTimeout(timer);
@@ -55,7 +57,7 @@ function GuessCountriesGame() {
   // Event handler for submitting guess
   const handleSubmitGuess = (event) => {
     event.preventDefault();
-    if (currentGuess.trim() === '') return; // Ignore empty guesses
+    if (currentGuess.trim() === '' || !timerRunning || gameOver) return; // Ignore empty guesses or guesses after game over
     const countryName = currentGuess.trim().toLowerCase();
     const country = countries.find(country => 
       country.name.common.toLowerCase() === countryName || 
@@ -70,6 +72,7 @@ function GuessCountriesGame() {
   // Event handler for resigning
   const handleResign = () => {
     setTimerRunning(false);
+    setGameOver(true);
     alert('You resigned!');
   };
 
@@ -80,9 +83,9 @@ function GuessCountriesGame() {
       <form onSubmit={handleSubmitGuess} className="mb-8">
         <label className="block mb-2">
           Guess a country:
-          <input type="text" value={currentGuess} onChange={handleGuessChange} className="mt-1 p-2 border rounded w-full" />
+          <input type="text" value={currentGuess} onChange={handleGuessChange} className="mt-1 p-2 border rounded w-full" disabled={!timerRunning || gameOver} />
         </label>
-        <button type="submit" className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded">Submit Guess</button>
+        <button type="submit" className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded" disabled={!timerRunning || gameOver}>Submit Guess</button>
       </form>
       <div className="mb-8">
         <h2 className="text-xl font-bold mb-2">Guessed Countries: {guessedCountries.size}</h2>
@@ -92,7 +95,7 @@ function GuessCountriesGame() {
           ))}
         </ul>
       </div>
-      <button onClick={handleResign} className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded">Resign</button>
+      <button onClick={handleResign} className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded" disabled={!timerRunning || gameOver}>Resign</button>
     </div>
   );
 }
