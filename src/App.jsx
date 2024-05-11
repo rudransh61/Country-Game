@@ -5,12 +5,27 @@ function GuessCountriesGame() {
   const [countries, setCountries] = useState([]);
   const [guessedCountries, setGuessedCountries] = useState(new Set());
   const [currentGuess, setCurrentGuess] = useState('');
-  const [timeLeft, setTimeLeft] = useState(180); // 3 minutes in seconds
+  const [timeLeft, setTimeLeft] = useState(); // 3 minutes in seconds
   const [timerRunning, setTimerRunning] = useState(true);
+  const [timeGiven, setTimeGiven] = useState();
+  const [promptShown, setPromptShown] = useState(false);
   const apiUrl = 'https://restcountries.com/v3.1/all';
 
-  // Fetch countries data from API
   useEffect(() => {
+    // Ask user for input for game time only when the component mounts and promptShown is false
+    if (!promptShown) {
+      const gameDuration = prompt("Enter the desired game time in seconds:", "180");
+      if (gameDuration !== null && !isNaN(gameDuration) && parseInt(gameDuration) > 0) {
+        setTimeLeft(parseInt(gameDuration));
+        setTimeGiven(parseInt(gameDuration));
+      } else {
+        alert("Invalid input! Defaulting to 180 seconds.");
+        setTimeLeft(180);
+      }
+      setPromptShown(true); // Set promptShown to true after showing the prompt
+    }
+
+    // Fetch countries data from API
     axios.get(apiUrl)
       .then(response => {
         setCountries(response.data);
@@ -18,7 +33,7 @@ function GuessCountriesGame() {
       .catch(error => {
         console.error('Error fetching countries:', error);
       });
-  }, []);
+  }, [promptShown]); // Run the effect only when promptShown changes
 
   // Timer effect
   useEffect(() => {
@@ -60,7 +75,7 @@ function GuessCountriesGame() {
 
   return (
     <div className="max-w-md mx-auto py-8 px-4">
-      <h1 className="text-3xl font-bold mb-4">Guess All Countries in 3 Minutes - Rudransh 😈</h1>
+      <h1 className="text-3xl font-bold mb-4">Guess All Countries in {timeGiven} seconds - Rudransh 😈</h1>
       <p className="text-lg mb-4">Time left: {timeLeft} seconds</p>
       <form onSubmit={handleSubmitGuess} className="mb-8">
         <label className="block mb-2">
@@ -70,7 +85,7 @@ function GuessCountriesGame() {
         <button type="submit" className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded">Submit Guess</button>
       </form>
       <div className="mb-8">
-        <h2 className="text-xl font-bold mb-2">Guessed Countries:{guessedCountries.size}</h2>
+        <h2 className="text-xl font-bold mb-2">Guessed Countries: {guessedCountries.size}</h2>
         <ul>
           {[...guessedCountries].map((country, index) => (
             <li key={index} className="mb-1">{country}</li>
