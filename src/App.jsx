@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { Client } from 'appwrite';
+// import { account, ID } from './lib/appwrite';
 
 function GuessCountriesGame() {
   const [countries, setCountries] = useState([]);
@@ -45,6 +47,19 @@ function GuessCountriesGame() {
       setTimerRunning(false);
       setGameOver(true);
       alert('Time is up!');
+      const client = new Client();
+      const database = client.Database(client);
+
+      const databaseId = '664066d000373eaae143';
+      const collectionId = '664066de0001362c9bd1';
+      const uniqueId = client.ID.unique(); // Optional: Generate a unique ID
+
+      const post = {
+        body: 'This is the body of my new post',
+      };
+
+      database.createDocument(databaseId, collectionId, uniqueId, post);
+
     }
     return () => clearTimeout(timer);
   }, [timerRunning, timeLeft]);
@@ -59,8 +74,8 @@ function GuessCountriesGame() {
     event.preventDefault();
     if (currentGuess.trim() === '' || !timerRunning || gameOver) return; // Ignore empty guesses or guesses after game over
     const countryName = currentGuess.trim().toLowerCase();
-    const country = countries.find(country => 
-      country.name.common.toLowerCase() === countryName || 
+    const country = countries.find(country =>
+      country.name.common.toLowerCase() === countryName ||
       (country.altSpellings && country.altSpellings.some(altSpelling => altSpelling.toLowerCase() === countryName))
     );
     if (country) {
