@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Client } from 'appwrite';
-// import { account, ID } from './lib/appwrite';
+import Leaderboard from './Leaderboard';
 
 function GuessCountriesGame() {
   const [countries, setCountries] = useState([]);
@@ -12,11 +11,16 @@ function GuessCountriesGame() {
   const [timeGiven, setTimeGiven] = useState();
   const [promptShown, setPromptShown] = useState(false);
   const [gameOver, setGameOver] = useState(false);
-  const apiUrl = 'https://restcountries.com/v3.1/all';
+  const [nickname, setNickName] = useState();
+  const [binId, setBinId] = useState(null); // To store the bin id returned by jsonbin.io
+  const [leaderboardData, setLeaderboardData] = useState([]);
+  const apiKey = '$2a$10$3ehE2pQUumQnbWfrY66jh.6FZS/Op2.aWOdh91Dvmwy/jE3HEVCjq'; // Replace with your jsonbin.io API key
+  const jsonBinUrl = 'https://api.jsonbin.io/v3/b';
 
   useEffect(() => {
-    // Ask user for input for game time only when the component mounts and promptShown is false
     if (!promptShown) {
+      const getname = prompt("Enter your nickname:", "rick")
+      setNickName(getname)
       const gameDuration = prompt("Enter the desired game time in seconds:", "180");
       if (gameDuration !== null && !isNaN(gameDuration) && parseInt(gameDuration) > 0) {
         setTimeLeft(parseInt(gameDuration));
@@ -25,20 +29,18 @@ function GuessCountriesGame() {
         alert("Invalid input! Defaulting to 180 seconds.");
         setTimeLeft(180);
       }
-      setPromptShown(true); // Set promptShown to true after showing the prompt
+      setPromptShown(true);
     }
 
-    // Fetch countries data from API
-    axios.get(apiUrl)
+    axios.get('https://restcountries.com/v3.1/all')
       .then(response => {
         setCountries(response.data);
       })
       .catch(error => {
         console.error('Error fetching countries:', error);
       });
-  }, [promptShown]); // Run the effect only when promptShown changes
+  }, [promptShown]);
 
-  // Timer effect
   useEffect(() => {
     let timer;
     if (timerRunning && timeLeft > 0) {
@@ -47,32 +49,72 @@ function GuessCountriesGame() {
       setTimerRunning(false);
       setGameOver(true);
       alert('Time is up!');
-      const client = new Client();
-      const database = client.Database(client);
-
-      const databaseId = '664066d000373eaae143';
-      const collectionId = '664066de0001362c9bd1';
-      const uniqueId = client.ID.unique(); // Optional: Generate a unique ID
-
-      const post = {
-        body: 'This is the body of my new post',
-      };
-
-      database.createDocument(databaseId, collectionId, uniqueId, post);
-
+      if (binId) {
+        // Save data to jsonbin.io
+        axios.post(`${jsonBinUrl}/${binId}`, {
+          name: nickname,
+          score: guessedCountries.size,
+          time: timeGiven,
+          points: guessedCountries.size / timeGiven,
+        }, {
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Master-Key': apiKey,
+          }
+        }).then(response => {
+          console.log('Document updated:', response.data);
+          fetchLeaderboardData();
+        }).catch(error => {
+          console.error('Error updating document:', error);
+        });
+      } else {
+        // Create a new bin on jsonbin.io
+        axios.post(jsonBinUrl, {
+          name: nickname,
+          score: guessedCountries.size,
+          time: timeGiven,
+          points: guessedCountries.size / timeGiven,
+        }, {
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Master-Key': apiKey,
+          }
+        }).then(response => {
+          console.log('Bin created:', response.data);
+          setBinId(response.data.metadata.id);
+          fetchLeaderboardData();
+        }).catch(error => {
+          console.error('Error creating bin:', error);
+        });
+      }
     }
     return () => clearTimeout(timer);
-  }, [timerRunning, timeLeft]);
+  }, [timerRunning, timeLeft, binId]);
 
-  // Event handler for guess input
+  useEffect(() => {
+    fetchLeaderboardData();
+  }, []);
+
+  const fetchLeaderboardData = () => {
+    axios.get(jsonBinUrl, {
+      headers: {
+        'X-Master-Key': apiKey,
+      }
+    }).then(response => {
+      const leaderboardData = response.data.records.filter(record => record.name && record.score);
+      setLeaderboardData(leaderboardData);
+    }).catch(error => {
+      console.error('Error fetching leaderboard data:', error);
+    });
+  };
+
   const handleGuessChange = (event) => {
     setCurrentGuess(event.target.value);
   };
 
-  // Event handler for submitting guess
   const handleSubmitGuess = (event) => {
     event.preventDefault();
-    if (currentGuess.trim() === '' || !timerRunning || gameOver) return; // Ignore empty guesses or guesses after game over
+    if (currentGuess.trim() === '' || !timerRunning || gameOver) return;
     const countryName = currentGuess.trim().toLowerCase();
     const country = countries.find(country =>
       country.name.common.toLowerCase() === countryName ||
@@ -84,7 +126,6 @@ function GuessCountriesGame() {
     setCurrentGuess('');
   };
 
-  // Event handler for resigning
   const handleResign = () => {
     setTimerRunning(false);
     setGameOver(true);
@@ -111,6 +152,8 @@ function GuessCountriesGame() {
         </ul>
       </div>
       <button onClick={handleResign} className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded" disabled={!timerRunning || gameOver}>Resign</button>
+
+     {/* <Leaderboard/> */}
     </div>
   );
 }
