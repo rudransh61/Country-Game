@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { Client, Databases, ID ,Query } from 'appwrite'; // Import Client and Databases from 'appwrite'
 
 function GuessCountriesGame() {
   const [countries, setCountries] = useState([]);
@@ -8,111 +9,96 @@ function GuessCountriesGame() {
   const [timeLeft, setTimeLeft] = useState();
   const [timerRunning, setTimerRunning] = useState(true);
   const [timeGiven, setTimeGiven] = useState();
+  const [nickname, setNickname] = useState('');
+  const [promptShown, setPromptShown] = useState(false);
   const [gameOver, setGameOver] = useState(false);
-  const [nickname, setNickName] = useState();
-  const [binId, setBinId] = useState(null);
-  const [leaderboardData, setLeaderboardData] = useState([]);
-  const [initialized, setInitialized] = useState(false);
+  const [createentry, setentry] = useState(true);
+  const [leaderboard, setLeaderboard] = useState([]);
+  const apiUrl = 'https://restcountries.com/v3.1/all';
 
-  const apiKey = '$2a$10$3ehE2pQUumQnbWfrY66jh.6FZS/Op2.aWOdh91Dvmwy/jE3HEVCjq'; // Replace with your jsonbin.io API key
-  const jsonBinUrl = 'https://api.jsonbin.io/v3/b';
-  const apiaccess = '$2a$10$yud0GQw8kEjDgiI2DLiiR.UCvhoAZd8XrRyYcEIpYE5piwAWJpnp6';
-  
-  useEffect(() => {
-    if (!initialized) {
-      handleInitialSetup();
-      fetchCountries();
-      fetchLeaderboardData();
-      setInitialized(true);
-    }
+  // Instantiate the Appwrite client
+  const client = new Client();
+  client
+    .setEndpoint('https://cloud.appwrite.io/v1')
+    .setProject('6641c6f1002734f67de1'); // Replace 'PROJECT_ID' with your actual project ID
 
-    if (!timerRunning && timeLeft === 0 && binId) {
-      saveGameData();
-    }
-  }, [timerRunning, timeLeft, binId, initialized]);
+  const databases = new Databases(client);
 
   useEffect(() => {
-    if (timerRunning) {
-      const interval = setInterval(() => {
-        setTimeLeft(prevTimeLeft => {
-          if (prevTimeLeft > 0) {
-            return prevTimeLeft - 1;
-          } else {
-            setTimerRunning(false);
-            clearInterval(interval);
-            setGameOver(true);
-            return 0;
-          }
-        });
-      }, 1000);
-  
-      return () => clearInterval(interval);
-    }
-  }, [timerRunning]);
+    if (!promptShown) {
+      const userNickname = prompt("Enter your nickname:", "rick");
+      if (userNickname !== null && userNickname.trim() !== '') {
+        setNickname(userNickname);
+      }
+      const gameDuration = prompt("Enter the desired game time in seconds:", "180");
+      if (gameDuration !== null && !isNaN(gameDuration) && parseInt(gameDuration) > 0) {
+        setTimeLeft(parseInt(gameDuration));
+        setTimeGiven(parseInt(gameDuration));
+      } else {
+        alert("Invalid input! Defaulting to 180 seconds.");
+        setTimeLeft(180);
+      }
 
-  const handleInitialSetup = () => {
-    const getname = prompt("Enter your nickname:", "rick");
-    setNickName(getname);
-    const gameDuration = prompt("Enter the desired game time in seconds:", "180");
-    if (gameDuration !== null && !isNaN(gameDuration) && parseInt(gameDuration) > 0) {
-      setTimeLeft(parseInt(gameDuration));
-      setTimeGiven(parseInt(gameDuration));
-    } else {
-      alert("Invalid input! Defaulting to 180 seconds.");
-      setTimeLeft(180);
+      setPromptShown(true);
     }
-  };
 
-  const fetchCountries = () => {
-    axios.get('https://restcountries.com/v3.1/all')
+    axios.get(apiUrl)
       .then(response => {
         setCountries(response.data);
       })
       .catch(error => {
         console.error('Error fetching countries:', error);
       });
-  };
+  }, [promptShown]);
 
-  const fetchLeaderboardData = () => {
-    axios.get(jsonBinUrl, {
-      headers: {
-        'X-Master-Key': apiKey, 
-        'X-Access-Key': apiaccess,
+  useEffect(() => {
+    let timer;
+    if (timerRunning && timeLeft > 0) {
+      timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
+    } else if (timeLeft === 0) {
+      setTimerRunning(false);
+      setGameOver(true);
+      alert('Time is up!');
+      if(createentry){
+        const promise = databases.createDocument(
+          '6641c7b8003bbbb41e3d', // Replace 'DATABASE_ID' with your actual database ID
+          '6641c7c1001a306a48a1', // Replace 'COLLECTION_ID' with your actual collection ID
+          ID.unique(),
+          {
+            "name": nickname,
+            "score": guessedCountries.size,
+            "time": timeGiven,
+          }
+        );
+        
+        promise.then(response => {
+          console.log('Document created:', response);
+        }).catch(error => {
+          console.error('Error creating document:', error);
+        });
+        setentry(false)
       }
-    }).then(response => {
-      const leaderboardData = response.data;
-      setLeaderboardData(leaderboardData);
-    }).catch(error => {
-      console.error('Error fetching leaderboard data:', error);
-    });
-  };
-  
+    }
+    return () => clearTimeout(timer);
+  }, [timerRunning, timeLeft]);
 
-  const saveGameData = () => {
-    const postData = {
-      name: nickname,
-      score: guessedCountries.size,
-      time: timeGiven,
-      points: guessedCountries.size / timeGiven,
+  useEffect(() => {
+    // Fetch leaderboard data
+    const getLeaderboard = async () => {
+      try {
+        const response = await databases.listDocuments(
+          '6641c7b8003bbbb41e3d', // Replace 'DATABASE_ID' with your actual database ID
+          '6641c7c1001a306a48a1', // Replace 'COLLECTION_ID' with your actual collection ID
+          [Query.orderDesc('score')],
+        );
+        setLeaderboard(response.documents);
+      } catch (error) {
+        console.error('Error fetching leaderboard:', error);
+      }
     };
 
-    const url = binId ? `${jsonBinUrl}/${binId}` : "https://api.jsonbin.io/v3/";
-    const method = binId ? 'put' : 'post';
-
-    axios[method](url, postData, {
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Master-Key': apiKey,
-        'X-Bin-Private': false,
-      }
-    }).then(response => {
-      console.log(binId ? 'Document updated:' : 'Bin created:', response.data);
-      setBinId(response.data.metadata.id);
-      fetchLeaderboardData();
-    }).catch(error => {
-      console.error(binId ? 'Error updating document:' : 'Error creating bin:', error);
-    });
-  };
+    getLeaderboard();
+  }, []);
 
   const handleGuessChange = (event) => {
     setCurrentGuess(event.target.value);
@@ -128,6 +114,9 @@ function GuessCountriesGame() {
     );
     if (country) {
       setGuessedCountries(new Set(guessedCountries.add(country.name.common)));
+
+      // Create document in Appwrite database
+
     }
     setCurrentGuess('');
   };
@@ -140,7 +129,7 @@ function GuessCountriesGame() {
 
   return (
     <div className="max-w-md mx-auto py-8 px-4">
-      <h1 className="text-3xl font-bold mb-4">Guess All Countries in {timeGiven} seconds - Rudransh 😈</h1>
+      <h1 className="text-3xl font-bold mb-4">Guess All Countries in {timeGiven} seconds - by Rudransh 😈</h1>
       <p className="text-lg mb-4">Time left: {timeLeft} seconds</p>
       <form onSubmit={handleSubmitGuess} className="mb-8">
         <label className="block mb-2">
@@ -159,24 +148,14 @@ function GuessCountriesGame() {
       </div>
       <button onClick={handleResign} className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded" disabled={!timerRunning || gameOver}>Resign</button>
 
-      <div className="max-w-md mx-auto py-8 px-4">
-        <h1 className="text-3xl font-bold mb-4">Leaderboard</h1>
-        <table className="table-auto">
-          <thead>
-            <tr>
-              <th className="px-4 py-2">Bin ID</th>
-              <th className="px-4 py-2">Data</th>
-            </tr>
-          </thead>
-          <tbody>
-            {leaderboardData.map((bin, index) => (
-              <tr key={index}>
-                <td className="border px-4 py-2">{bin.metadata.id}</td>
-                <td className="border px-4 py-2">{JSON.stringify(bin.record)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {/* Leaderboard */}
+      <div className="mt-8">
+        <h2 className="text-2xl font-bold mb-2">Leaderboard</h2>
+        <ol>
+          {leaderboard.map((entry, index) => (
+            <li key={index} className="mb-1">{entry.name} - Score: {entry.score}</li>
+          ))}
+        </ol>
       </div>
     </div>
   );
