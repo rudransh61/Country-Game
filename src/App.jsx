@@ -20,7 +20,7 @@ function GuessCountriesGame() {
   const client = new Client();
   client
     .setEndpoint('https://cloud.appwrite.io/v1')
-    .setProject('6641c6f1002734f67de1'); // Replace 'PROJECT_ID' with your actual project ID
+    .setProject(import.meta.env.VITE_PROJECTID); // Replace 'PROJECT_ID' with your actual project ID
 
   const databases = new Databases(client);
 
@@ -61,13 +61,14 @@ function GuessCountriesGame() {
       alert('Time is up!');
       if(createentry){
         const promise = databases.createDocument(
-          '6641c7b8003bbbb41e3d', // Replace 'DATABASE_ID' with your actual database ID
-          '6641c7c1001a306a48a1', // Replace 'COLLECTION_ID' with your actual collection ID
+          import.meta.env.VITE_DATABASEID, // Replace 'DATABASE_ID' with your actual database ID
+          import.meta.env.VITE_COLLECTIONID, // Replace 'COLLECTION_ID' with your actual collection ID
           ID.unique(),
           {
             "name": nickname,
             "score": guessedCountries.size,
             "time": timeGiven,
+            "points":guessedCountries.size/timeGiven,
           }
         );
         
@@ -87,9 +88,9 @@ function GuessCountriesGame() {
     const getLeaderboard = async () => {
       try {
         const response = await databases.listDocuments(
-          '6641c7b8003bbbb41e3d', // Replace 'DATABASE_ID' with your actual database ID
-          '6641c7c1001a306a48a1', // Replace 'COLLECTION_ID' with your actual collection ID
-          [Query.orderDesc('score')],
+          import.meta.env.VITE_DATABASEID, // Replace 'DATABASE_ID' with your actual database ID
+          import.meta.env.VITE_COLLECTIONID, // Replace 'COLLECTION_ID' with your actual collection ID
+          [Query.orderDesc('points')],
         );
         setLeaderboard(response.documents);
       } catch (error) {
@@ -153,7 +154,7 @@ function GuessCountriesGame() {
         <h2 className="text-2xl font-bold mb-2">Leaderboard</h2>
         <ol>
           {leaderboard.map((entry, index) => (
-            <li key={index} className="mb-1">{entry.name} - Score: {entry.score}</li>
+            <li key={index} className="mb-1">{entry.name} - Score: {entry.points*100}</li>
           ))}
         </ol>
       </div>
