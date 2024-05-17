@@ -154,7 +154,7 @@ function GuessCountriesGame() {
         <h2 className="text-2xl font-bold mb-2">Leaderboard</h2>
         <ol>
           {leaderboard.map((entry, index) => (
-            <li key={index} className="mb-1">{entry.name} - Score: {entry.points*100}</li>
+            <li key={index} className="mb-1">{entry.name} - Score: {entry.points*100} - Time: {entry.time} </li>
           ))}
         </ol>
       </div>
